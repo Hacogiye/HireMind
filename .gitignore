@@ -1,0 +1,13 @@
+# Secrets — never commit
+.env
+
+# User data (CVs, session JSONs) — never commit
+data/*
+!data/.gitkeep
+
+# Dependencies
+node_modules/
+
+# Logs / OS
+*.log
+.DS_Store
