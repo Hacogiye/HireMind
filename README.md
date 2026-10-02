@@ -15,18 +15,18 @@ cp .env.example .env   # điền AI_BASE_URL / AI_API_KEY / AI_MODEL
 ## Cấu trúc
 
 ```
-├── server.js        # Bootstrap Express + TODO danh sách routes
+├── server.js        # Bootstrap Express + TODO danh sách routes (gồm rewrite/reupload/cv-docx)
 ├── dotenv.js        # Loader .env không dependency (phần khung)
 ├── lib/             # Stub module nghiệp vụ — toàn TODO
-│   ├── ai.js        # AI client OpenAI-compatible
-│   ├── jd.js        # Tải tin tuyển dụng từ URL (multi-fallback)
-│   ├── pipeline.js  # Pipeline nền: extract → validate → JD → analyze
-│   ├── services.js  # Chat / Mock interview / Cover letter
-│   └── docx.js      # Xuất Word (tính năng phụ)
-├── public/          # Shell 2 trang (index + session) — chưa có UI
+│   ├── ai.js        # AI client (stream, JSON, OCR + AI_VISION_MODEL, phân loại lỗi)
+│   ├── jd.js        # Tải tin tuyển dụng từ URL (multi-fallback + SSRF guard)
+│   ├── pipeline.js  # Pipeline nền + hàng đợi ghi session.json
+│   ├── services.js  # Viết lại CV 2 chế độ / Cover letter chuẩn / Chat / Interview
+│   └── docx.js      # Xuất Word + CV thiết kế (banner, ô dán ảnh 3×4)
+├── public/          # Shell 2 trang (index/session) — chưa có UI
 ├── data/            # Mỗi phiên 1 thư mục (session.json + uploads/) — gitignore
 └── docs/
-    ├── EXAM-PLAN.md     # Kế hoạch 12 giờ + bẫy đã biết + checklist biên
+    ├── EXAM-PLAN.md     # Kế hoạch 8 giờ + bẫy đã biết + checklist biên + quy tắc commit
     ├── ARCHITECTURE.md  # Viết trong ngày thi
     └── PROGRESS.md      # Log tiến độ trong ngày thi
 ```

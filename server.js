@@ -21,12 +21,21 @@ app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: 
 
 // TODO(ngày thi) — API routes cần dựng:
 //   POST /api/session/new               tạo phiên, trả link /s/:id
-//   POST /api/upload                    lưu file + meta, kick off pipeline nền (setImmediate)
+//   POST /api/upload                    lưu file + meta (clientPdfText/Images), kick off
+//                                       pipeline nền (setImmediate) — user thoát trang vẫn chạy
 //   GET  /api/session/:id               poll trạng thái / kết quả
+//   POST /api/session/:id/rewrite       Viết lại CV — body {mode: reshape|addskills};
+//                                       pending state + rewriteMode persist; POST luôn tạo mới
+//   POST /api/session/:id/reupload      PHIÊN CON kế thừa meta + parentSessionId (vòng kiểm chứng)
 //   POST /api/session/:id/chat          Chat Coach (lịch sử persist vào session.json)
 //   POST /api/session/:id/interview/*   Mock interview (start/reply/stop/state/history)
-//   POST /api/session/:id/cover-letter  Cover letter (cache theo option)
+//   POST /api/session/:id/cover-letter  Cover letter (pending + cache theo option)
 //   POST /api/export/docx               xuất Word từ Markdown
+//   POST /api/export/cv-docx            xuất CV THIẾT KẾ (banner màu, ô dán ảnh 3×4)
+//   GET  /api/health                    health check
+//
+// Ghi session.json: ĐỌC-LẠI-TRƯỚC-KHI-GHI hoặc hàng đợi theo phiên — các luồng
+// (pipeline + chat + rewrite + cover letter) ghi chồng nhau sẽ mất dữ liệu nếu không.
 
 // Passenger/cPanel (Setup Node.js App) cấp PORT qua env; local mặc định 3000.
 app.listen(PORT, () => {
