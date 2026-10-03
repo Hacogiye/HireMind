@@ -296,6 +296,7 @@
     let pane = tabPanes[id];
     if (!pane) {
       const renderers = {
+        overview: renderOverview,
       };
       pane = document.createElement('div');
       pane.className = 'tab-pane no-anim';
@@ -352,6 +353,159 @@
   }
 
   // ----- Overview -----
+  function renderOverview() {
+    const r = SESSION.result;
+    const ha = hireAssess();
+    const pv = PASS_VERDICT[ha.verdict] || PASS_VERDICT.uncertain;
+    const bd = r.breakdown || {};
+    const bdRows = [
+      ['content', 'Nội dung'], ['format', 'Trình bày'], ['relevance', 'Liên quan vị trí'], ['impact', 'Tác động'],
+    ];
+    // Phiên kiểm chứng (nạp lại CV đã chỉnh) — panel so sánh điểm với phiên gốc.
+    // parentSessionId nằm ở top-level của session (server đặt khi reupload).
+    const parentId = SESSION.parentSessionId || SESSION.meta?.parentSessionId;
+    const cmpMount = parentId ? '<div class="mb-6" id="cmpMount"></div>' : '';
+    if (parentId) loadCompare(parentId);
+    return `
+      ${cmpMount}
+      ${(ha.headline || (ha.reasons && ha.reasons.length)) ? `
+      <div class="panel mb-6 hire-panel">
+        <div class="hire-head">
+          <div class="hire-pct-wrap">
+            <div class="hire-pct" style="color: var(--hire-color, var(--danger));"><span data-count="${ha.passProbability}">0</span>%</div>
+            <div class="hire-pct-sub">khả năng đậu</div>
+          </div>
+          <div class="hire-body">
+            <div class="hire-headline"><span class="pg-emoji">${pv.emoji}</span> ${esc(ha.headline || `Khả năng đậu phỏng vấn: ${ha.passProbability}% — ${pv.label.toLowerCase()}`)}</div>
+            ${(ha.reasons || []).length ? `<div class="hire-reasons">${ha.reasons.map(x => `<div class="flag-item"><div class="flag-dot" style="background: var(--hire-color, var(--danger));"></div><div>${esc(x)}</div></div>`).join('')}</div>` : ''}
+            ${(ha.whatWouldRaise || []).length ? `
+              <div class="hire-raise">
+                <div class="field-label" style="margin-bottom: 6px; color: var(--accent);">📈 Muốn tăng tỉ lệ này?</div>
+                ${ha.whatWouldRaise.map(x => `<div class="flag-item"><div class="flag-dot" style="background: var(--accent);"></div><div>${esc(x)}</div></div>`).join('')}
+              </div>` : ''}
+            <div class="ai-disclaimer" style="margin-top: 12px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+              Ước lượng do AI đưa ra dựa trên CV &amp; JD — chỉ để tham khảo.
+            </div>
+          </div>
+        </div>
+      </div>` : ''}
+
+      ${(r.alternativePaths && r.alternativePaths.length) ? `
+      <div class="panel mb-6 alt-paths-panel">
+        <div class="panel-title">
+          <span class="pt-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg></span>
+          Cân nhắc hướng đi khác phù hợp hơn
+        </div>
+        <p class="muted" style="margin-bottom: 14px;">Dựa trên CV hiện tại, AI thấy những vị trí này tận dụng tốt hơn thế mạnh của bạn:</p>
+        <div class="alt-paths">
+          ${r.alternativePaths.map(p => `
+          <div class="alt-path-card">
+            <div class="ap-head">
+              <div class="ap-role">${esc(p.role || 'Vị trí đề xuất')}</div>
+              ${typeof p.fitScore === 'number' ? `<div class="ap-fit" style="color: ${p.fitScore >= 60 ? 'var(--success, #16a34a)' : 'var(--warning, #d97706)'};">${p.fitScore}% phù hợp</div>` : ''}
+            </div>
+            <div class="ap-why">${esc(p.why || '')}</div>
+            ${p.note ? `<div class="ap-note">📌 ${esc(p.note)}</div>` : ''}
+          </div>`).join('')}
+        </div>
+        <div class="ai-disclaimer" style="margin-top: 12px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+          Gợi ý hướng đi do AI đề xuất dựa trên CV — hãy cân nhắc với mục tiêu cá nhân của bạn.
+        </div>
+      </div>` : ''}
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-title">
+            <span class="pt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/></svg></span>
+            Điểm theo tiêu chí
+          </div>
+          ${bdRows.map(([k, label]) => `
+            <div class="bd-row">
+              <div class="bd-lbl">${label}</div>
+              <div class="progress-track"><div class="progress-fill" style="width: ${bd[k] || 0}%; transition-delay: 0.1s;"></div></div>
+              <div class="bd-val">${bd[k] ?? '—'}</div>
+            </div>`).join('')}
+        </div>
+        <div class="panel">
+          <div class="panel-title">
+            <span class="pt-icon red"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4m0 4h.01"/></svg></span>
+            Red flags ATS
+            <span class="count">${(r.atsRedFlags || []).length}</span>
+          </div>
+          ${(r.atsRedFlags || []).length ? (r.atsRedFlags || []).map(f => `
+            <div class="flag-item"><div class="flag-dot"></div><div>${esc(f)}</div></div>`).join('')
+            : '<p class="muted">Không phát hiện red flags — tốt!</p>'}
+        </div>
+        <div class="panel">
+          <div class="panel-title">
+            <span class="pt-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            Điểm mạnh
+            <span class="count">${(r.strengths || []).length}</span>
+          </div>
+          ${(r.strengths || []).map(st => `
+            <div class="sw-item pos">
+              <div class="sw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+              <div class="sw-body">
+                <div class="sw-point">${esc(st.point)}</div>
+                ${st.evidence ? `<div class="sw-evidence">"${esc(st.evidence)}"</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+        <div class="panel">
+          <div class="panel-title">
+            <span class="pt-icon red"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+            Điểm yếu &amp; cách sửa
+            <span class="count">${(r.weaknesses || []).length}</span>
+          </div>
+          ${(r.weaknesses || []).map(w => `
+            <div class="sw-item neg">
+              <div class="sw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+              <div class="sw-body">
+                <div class="sw-point">${esc(w.point)}</div>
+                ${w.evidence ? `<div class="sw-evidence">"${esc(w.evidence)}"</div>` : ''}
+                ${w.fix ? `<div class="sw-fix"><strong>Cách sửa:</strong> ${esc(w.fix)}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="panel mt-6">
+        <div class="panel-title">
+          <span class="pt-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg></span>
+          Gợi ý cải thiện (ưu tiên theo tác động)
+          <span class="count">${(r.improvements || []).length}</span>
+        </div>
+        ${(r.improvements || []).map(im => `
+          <div class="imp-item">
+            <span class="imp-pri badge ${im.priority === 'high' ? 'badge-red' : im.priority === 'medium' ? 'badge-amber' : 'badge-sky'}">${im.priority === 'high' ? 'Ưu tiên cao' : im.priority === 'medium' ? 'Nên làm' : 'Nên có'}</span>
+            <div class="imp-body">
+              <div class="imp-title">${esc(im.title)}</div>
+              <div class="imp-detail">${esc(im.detail)}</div>
+              ${im.impact ? `<div class="imp-impact"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:3px"><path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg>${esc(im.impact)}</div>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+
+      <div class="panel mt-6">
+        <div class="panel-title">
+          <span class="pt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+          3 câu hỏi phỏng vấn khó nhất có thể gặp
+        </div>
+        ${(r.hardQuestions || []).map((q, i) => `
+          <div class="hq-item"><div class="hq-num">${i + 1}</div><div class="hq-q">${esc(q)}</div></div>`).join('')}
+        <div class="hq-cta">
+          <button class="btn btn-primary" id="btnPracticeHQ">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg>
+            Luyện trả lời các câu hỏi này với AI Interviewer
+          </button>
+          <span class="hq-cta-note">AI sẽ đóng vai nhà tuyển dụng, chờ bạn nói "sẵn sàng" mới bắt đầu hỏi</span>
+        </div>
+      </div>`;
+  }
+
+  // ----- JD Match -----
 
   // render tối giản mặc định — được các commit sau định nghĩa lại
 
