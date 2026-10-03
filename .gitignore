@@ -13,3 +13,8 @@ node_modules/
 .DS_Store
 .zcode/
 .playwright-mcp/
+
+# Tài liệu nghiên cứu local (không nộp)
+.zwork/
+assets/
+nghien-cuu-hiremind.md

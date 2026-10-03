@@ -4,8 +4,6 @@
 
 Ứng viên tải CV lên + dán link tin tuyển dụng → HireMind đọc cả hai và chỉ ra chính xác: **bạn đã có gì, còn thiếu gì, học gì tiếp** — kèm chat coach, phỏng vấn giả lập, cover letter.
 
-![Landing](docs/screenshots/01-landing-hero.png)
-
 ## Tính năng
 
 | | |
@@ -57,10 +55,11 @@ PORT=3000
 │   ├── ai.js            # AI client + JSON extraction + vision OCR
 │   ├── jd.js            # Fetch JD: direct → jina.ai → Chromium
 │   ├── pipeline.js      # Pipeline nền: extract → validate → JD → analyze
-│   └── services.js      # Chat / Interview / Cover Letter
+│   ├── services.js      # Chat / Interview / Cover Letter / Viết lại CV 2 chế độ
+│   └── docx.js          # Xuất .docx thuần Node + CV thiết kế (banner, ô ảnh 3×4)
 ├── public/              # SPA không build step
 │   ├── index.html       # Landing + wizard 3 bước
-│   ├── session.html     # Dashboard kết quả (7 tabs)
+│   ├── session.html     # Dashboard kết quả (8 tabs)
 │   ├── css/  js/        # Design tokens light/dark + logic
 ├── data/<sessionId>/    # session.json + uploads/ (mỗi phiên 1 thư mục)
 ├── docs/                # Tài liệu dự án + slide proposal
