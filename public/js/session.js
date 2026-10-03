@@ -672,7 +672,7 @@
         <p class="muted" style="margin-bottom: 14px;">Chọn chế độ viết lại, AI dựa trên toàn bộ phân tích${hasJd ? ` và tin tuyển dụng <strong>${esc(SESSION.jd.title || '')}</strong>` : ''} để làm lại CV của bạn. Kết quả là <strong>đề xuất tham khảo</strong> — hãy đọc kỹ và đánh giá lại trước khi dùng.</p>
         <div class="rw-modes">
           <label class="rw-mode"><input type="radio" name="rwMode" value="reshape" checked><span class="rwm-body"><strong>Cấu trúc &amp; làm nổi bật</strong><small>Sắp xếp lại, diễn lại câu yếu, cắt chi tiết thừa — không thêm gì mới vào CV</small></span></label>
-          <label class="rw-mode"><input type="radio" name="rwMode" value="addskills"><span class="rwm-body"><strong>Bổ sung kỹ năng còn thiếu</strong><small>Thêm mục "Kỹ năng đang bổ sung" từ các gap — kèm ghi chú trung thực, bạn tự xác nhận</small></span></label>
+          <label class="rw-mode"><input type="radio" name="rwMode" value="addskills"><span class="rwm-body"><strong>Bổ sung kỹ năng còn thiếu</strong><small>Đưa các kỹ năng trong lộ trình đã học vào CV như kỹ năng hiện có — bạn tự xác nhận năng lực trước khi dùng</small></span></label>
         </div>
         ${!hasJd ? '<div class="leave-note mb-4">Phiên này không có JD — CV sẽ được tối ưu theo vị trí bạn đã điền. Tạo phiên mới kèm link/dán JD để được "may đo" sát hơn.</div>' : ''}
         <div class="rw-actions-bar">
@@ -700,7 +700,7 @@
       const mode = d.mode || SESSION.rewriteMode || 'reshape';
       out.innerHTML = `
         ${d.note ? `<div class="rw-note">${esc(d.note)}</div>` : ''}
-        ${mode === 'addskills' ? `<div class="leave-note" style="background: var(--warn-soft); color: var(--warn); width: 100%; margin-bottom: 14px;"><strong>⚠ Chế độ bổ sung kỹ năng — ý kiến AI chỉ mang tính tham khảo:</strong> chỉ giữ những kỹ năng bạn thực sự có hoặc đang học; nhà tuyển dụng sẽ hỏi sâu về mọi kỹ năng ghi trong CV.</div>` : ''}
+        ${mode === 'addskills' ? `<div class="leave-note" style="background: var(--warn-soft); color: var(--warn); width: 100%; margin-bottom: 14px;"><strong>⚠ Chế độ bổ sung kỹ năng — dành cho người ĐÃ học xong lộ trình:</strong> CV sẽ ghi các kỹ năng này như kỹ năng hiện có — hãy chắc chắn bạn thực sự nắm được chúng trước khi gửi; nhà tuyển dụng sẽ hỏi sâu về mọi kỹ năng ghi trong CV.</div>` : ''}
         <div class="rw-section-label">① Bản CV đã viết lại</div>
         <div class="rw-cv md-wrap">${md(d.rewrittenCv || '(trống)')}</div>
         <div class="rw-section-label mt-6">② Thay đổi đáng chú ý <span class="count">${(d.changes || []).length}</span></div>
