@@ -3,6 +3,7 @@
 require('./dotenv').loadEnv(__dirname);
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +39,20 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('/s/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'session.html'));
 });
+
+// Session id: 12 hex từ UUID — regex chặt dùng chung khắp nơi (chặn path traversal)
+const SESSION_RE = /^[a-f0-9]{12}$/;
+const newSessionId = () => crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+
+// Middleware kiểm tra X-Session-Id TRƯỚC khi multer ghi file xuống đĩa
+function requireSessionId(req, res, next) {
+  const id = req.get('x-session-id') || '';
+  if (!SESSION_RE.test(id)) {
+    return res.status(400).json({ error: 'Phiên không hợp lệ — hãy mở lại link phiên.' });
+  }
+  req.sessionId = id;
+  next();
+}
 
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: Date.now() }));
