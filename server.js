@@ -406,9 +406,15 @@ app.post('/api/session/:id/chat', rateLimit('chat', { capacity: 60, refillMs: 30
     res.json({ reply, history: final.chatHistory });
   } catch (e) {
     console.error('[chat]', e);
-    // Clear pending để UI không treo indicators "đang gõ" khi AI chết
+    // Clear pending + GỞ tin nhắn user vừa persist (tránh history lệch nhịp
+    // user-user-assistant làm UI ghép cặp sai vai trò)
     try {
-      await withSession(req.params.id, s => { s.chatPending = false; });
+      await withSession(req.params.id, s => {
+        if (Array.isArray(s.chatHistory) && s.chatHistory.length && s.chatHistory[s.chatHistory.length - 1].role === 'user') {
+          s.chatHistory.pop();
+        }
+        s.chatPending = false;
+      });
     } catch { /* ignore */ }
     res.status(500).json({ error: e.friendly || 'AI không phản hồi được. Thử lại sau ít phút.' });
   }
