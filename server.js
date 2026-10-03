@@ -77,7 +77,8 @@ function rateLimit(name, { capacity = 10, refillMs = 6000 } = {}) {
 // data/<id>/ — mỗi phiên một thư mục: session.json + uploads/
 const DATA_DIR = path.join(__dirname, 'data');
 // Pipeline nền + hàng đợi ghi — mọi ghi session.json đi qua withSession
-const { withSession, processSession, patchSession } = require('./lib/pipeline');
+const { withSession, processSession, patchSession, readSession } = require('./lib/pipeline');
+const { rewriteCV, generateCoverLetter } = require('./lib/services');
 
 // POST /api/session/new — tạo phiên, trả link /s/:id
 app.post('/api/session/new', (req, res) => {
@@ -205,6 +206,160 @@ app.use((err, req, res, next) => {
     return res.status(413).json({ error: msg });
   }
   next(err);
+});
+
+// ---------- Viết lại CV 2 chế độ + xuất Word ----------
+// rewrite lưu khi xong, rewritePending=true khi đang tạo — user rời tab quay lại vẫn thấy.
+// POST luôn tạo MỚI (UI chỉ gọi khi user bấm nút; restore sau reload đọc thẳng session.rewrite).
+app.post('/api/session/:id/rewrite', rateLimit('rewrite', { capacity: 20, refillMs: 3000 }), async (req, res) => {
+  try {
+    const s = readSession(req.params.id);
+    if (s.status !== 'ready') return res.status(400).json({ error: 'Phiên chưa sẵn sàng' });
+    const mode = req.body?.mode === 'addskills' ? 'addskills' : 'reshape';
+
+    await withSession(req.params.id, s2 => {
+      s2.rewritePending = true;
+      s2.rewriteMeta = mode;
+    });
+
+    try {
+      const result = await rewriteCV(s, { mode });
+      if (!result || typeof result.rewrittenCv !== 'string' || !result.rewrittenCv.trim()) {
+        throw new Error('AI trả về CV viết lại không hợp lệ');
+      }
+      result.changes = Array.isArray(result.changes) ? result.changes.slice(0, mode === 'addskills' ? 10 : 8) : [];
+      result.unfixableGaps = Array.isArray(result.unfixableGaps) ? result.unfixableGaps.slice(0, 4) : [];
+      await withSession(req.params.id, s2 => {
+        s2.rewrite = result;
+        s2.rewriteMode = mode;
+        s2.rewritePending = false;
+      });
+      res.json({ ...result, mode });
+    } catch (e) {
+      await withSession(req.params.id, s2 => { s2.rewritePending = false; }).catch(() => {});
+      throw e;
+    }
+  } catch (e) {
+    console.error('[rewrite]', e);
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    res.status(500).json({ error: e.friendly || 'Không viết lại được CV. Thử lại sau ít phút.' });
+  }
+});
+
+app.post('/api/export/docx', (req, res) => {
+  try {
+    const { title, markdown } = req.body || {};
+    if (!markdown) return res.status(400).json({ error: 'Thiếu nội dung' });
+    const { buildDocx } = require('./lib/docx'); // lazy — không đụng khi boot
+    const buf = buildDocx(String(title || 'HireMind'), String(markdown).slice(0, 60000));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'attachment; filename="hiremind-export.docx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[docx]', e);
+    res.status(500).json({ error: 'Không tạo được file Word' });
+  }
+});
+
+// Export CV thiết kế: banner màu + ô dán ảnh 3×4 + heading màu + ngày căn phải + skill 2 cột
+app.post('/api/export/cv-docx', (req, res) => {
+  try {
+    const { markdown, name } = req.body || {};
+    if (!markdown) return res.status(400).json({ error: 'Thiếu nội dung CV' });
+    const { buildCvDocx } = require('./lib/docx');
+    const buf = buildCvDocx(String(markdown).slice(0, 60000), { name: String(name || 'CV') });
+    const safeName = String(name || 'CV').replace(/[^\p{L}\w\- ]+/gu, '').trim().replace(/\s+/g, '-') || 'HireMind';
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="CV-${encodeURIComponent(safeName)}.docx"; filename*=UTF-8''CV-${encodeURIComponent(safeName + '.docx')}`);
+    res.send(buf);
+  } catch (e) {
+    console.error('[cv-docx]', e);
+    res.status(500).json({ error: 'Không tạo được file CV Word' });
+  }
+});
+
+// ---------- Vòng kiểm chứng: nạp CV mới vào PHIÊN CON so với phiên gốc ----------
+// Phiên con kế thừa meta (vị trí/JD) + mang parentSessionId — dashboard phiên con
+// dùng nó để tải kết quả phiên gốc dựng panel so sánh trước/sau.
+app.post('/api/session/:id/reupload', requireSessionId, upload.array('files', 12), (req, res) => {
+  try {
+    const parentId = req.params.id;
+    if (!SESSION_RE.test(parentId)) return res.status(400).json({ error: 'Session id không hợp lệ' });
+    const parentFile = path.join(DATA_DIR, parentId, 'session.json');
+    if (!fs.existsSync(parentFile)) return res.status(404).json({ error: 'Không tìm thấy phiên gốc' });
+    const parent = JSON.parse(fs.readFileSync(parentFile, 'utf8'));
+    if (parent.status !== 'ready') return res.status(400).json({ error: 'Phiên gốc chưa sẵn sàng' });
+    if (!(req.files || []).length && !req.body.clientPdfText) {
+      return res.status(400).json({ error: 'Chưa chọn file CV nào' });
+    }
+
+    const id = newSessionId();
+    fs.mkdirSync(path.join(DATA_DIR, id), { recursive: true });
+    // Ghi khởi tạo qua hàng đợi luôn — pipeline vừa kick off cũng ghi phiên này
+    withSession(id, (session) => {
+      session.id = id;
+      session.status = 'uploading';
+      session.createdAt = new Date().toISOString();
+      session.files = (req.files || []).map(f => ({
+        stored: f.filename,
+        name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
+        size: f.size,
+        type: f.mimetype,
+      }));
+      session.meta = { ...(parent.meta || {}), ...(safeParse(req.body.meta) || {}) };
+      session.parentSessionId = parentId;
+      if (typeof req.body.clientPdfText === 'string') session.clientPdfText = req.body.clientPdfText;
+      if (typeof req.body.clientPdfImages === 'string') {
+        const imgs = safeParse(req.body.clientPdfImages);
+        if (Array.isArray(imgs)) session.clientPdfImages = imgs;
+      }
+      session.status = 'processing';
+      session.stage = 'queued';
+      session.stageLabel = 'Đang chờ xử lý...';
+    }).then(() => {
+      setImmediate(() => processSession(id).catch(e => console.error('[reupload-pipeline]', e)));
+    }).catch(e => console.error('[reupload-write]', e));
+
+    res.json({ id, url: `/s/${id}` });
+  } catch (e) {
+    console.error('[reupload]', e);
+    res.status(500).json({ error: 'Không tạo được phiên kiểm chứng — thử lại.' });
+  }
+});
+
+// ---------- Cover Letter: pending + cache theo option ----------
+// Cùng tone/language/extraNote → trả kết quả đã có, không đốt AI call.
+app.post('/api/session/:id/cover-letter', rateLimit('cover', { capacity: 30, refillMs: 3000 }), async (req, res) => {
+  try {
+    const s = readSession(req.params.id);
+    if (s.status !== 'ready') return res.status(400).json({ error: 'Phiên chưa sẵn sàng' });
+    const { tone, language, extraNote } = req.body || {};
+
+    const optsKey = JSON.stringify({ tone: tone || 'professional', language: language || 'vi', extraNote: extraNote || null });
+    if (s.coverLetter && s.coverLetterMeta === optsKey) {
+      return res.json({ ...s.coverLetter, cached: true });
+    }
+
+    await withSession(req.params.id, s2 => {
+      s2.coverLetterPending = true;
+      s2.coverLetterMeta = optsKey;
+    });
+
+    try {
+      const result = await generateCoverLetter(s, { tone, language, extraNote });
+      await withSession(req.params.id, s2 => {
+        s2.coverLetter = result;
+        s2.coverLetterPending = false;
+      });
+      res.json(result);
+    } catch (e) {
+      await withSession(req.params.id, s2 => { s2.coverLetterPending = false; }).catch(() => {});
+      throw e;
+    }
+  } catch (e) {
+    console.error('[cover-letter]', e);
+    res.status(500).json({ error: e.friendly || 'Không tạo được cover letter. Thử lại.' });
+  }
 });
 
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
