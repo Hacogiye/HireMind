@@ -108,7 +108,9 @@ const upload = multer({
       cb(null, `${Date.now()}_${safe}`);
     },
   }),
-  limits: { files: 12, fileSize: 15 * 1024 * 1024 },
+  limits: { files: 12, fileSize: 15 * 1024 * 1024, fieldSize: 20 * 1024 * 1024 },
+  // fieldSize: busboy mặc định chặn 1MB/form field — clientPdfImages (JSON base64
+  // các trang scan) dễ vượt và chết 500 im lặng nếu không nâng.
 });
 
 // POST /api/upload — nhận file + meta, chuyển phiên sang processing
