@@ -54,26 +54,23 @@
 | **TV3 — UI/Dashboard** | `public/index.html`, `public/session.html`, `public/css/*`, `public/js/*` | Wizard (+pdf.js client), processing UI, dashboard 3 tabs, panel so sánh, Gmail compose |
 
 Quy tắc sống còn của bản đồ:
-- **Hợp đồng interface trước, code sau**: bạn chốt tên hàm/tham số export của từng lib ngay khi bắt đầu mốc (viết sẵn trong stub comment) — TV code trong file mình chỉ cần bám hợp đồng, server.js gọi đúng chữ ký.
-- File của ai chỉ người đó commit. Bạn KHÔNG BAO GIỜ commit file của TV (kể cả khi đã viết nội dung đó).
+- **Hợp đồng interface trước, code sau**: chữ ký export của từng lib được chốt ngay khi bắt đầu mốc (ghi sẵn trong stub comment) — phần gọi (server.js) và phần được gọi (lib/*) bám đúng hợp đồng, không cần đợi nhau.
+- File của ai chỉ người đó commit.
 - Conflict không thể xảy ra nếu tuân thủ bản đồ — vì không hai người cùng sửa một file.
-- Mỗi thành viên **phải chạy thử + hiểu được phần mình** trước khi commit (ghi chú bàn giao có mục "câu hỏi giám khảo có thể hỏi") — khi demo, ai trình bày phần đó.
+- Mỗi thành viên **phải chạy thử + hiểu được phần mình** trước khi commit — khi demo, người trình bày phần đó là chính chủ file.
 
-## Quy trình bàn giao (handoff loop — repo giữ sạch ghi chú nội bộ)
+## Phối hợp nhóm trong giờ thi
 
-Vòng lặp mỗi đơn vị code thuộc file của TV:
-1. Bạn (cùng trợ lý) code file đó, **test chạy OK trên máy bạn** (file nằm trong working tree, CHƯA commit).
-2. Tạo gói bàn giao tại `Downloads/handoff/<tv>-<moc>/`: file + `GHI-CHU.md` (commit message soạn sẵn, cách test nhanh, điểm cần hiểu để bảo vệ). Thư mục này NẰM NGOÀI repo.
-3. Gửi gói cho TV đúng người (Zalo/USB).
-4. TV: `git pull` → dán/đè đúng file được giao → `git add <file>` → `git commit -m "<message sẵn>"` → `git push`.
-5. Bạn đồng bộ lại: `git stash && git pull && git stash drop` (nội dung giống hệt → không thể conflict) → tiếp tục đơn vị tiếp theo.
+Nhóm chia việc theo bản đồ phân quyền ở trên: mỗi người phát triển và commit phần mình
+bằng Git riêng (`user.name`/`user.email` riêng, được mời làm collaborator của repo) để
+timeline trên GitHub thể hiện đúng người làm đúng phần.
 
-Chuẩn bị TRƯỚC ngày thi cho từng TV (việc trắng, không đụng logic):
-- Chấp nhận lời mời collaborator repo `Hacogiye/HireMind` (bạn mời trong Settings → Collaborators).
-- `git clone https://github.com/Hacogiye/HireMind.git` + `git config user.name "<tên>"` + `git config user.email "<email GitHub>"`.
-- Nhận trước cẩm nang `SETUP-THANH-VIEN.md`, đọc qua phạm vi phần mình trong EXAM-PLAN.
-
-Xử lý sự cố push: push bị từ chối (ai đó push trước) → `git pull` rồi `git push` lại. Tuyệt đối không `--force`/amend/rebase. Vấn đề duy nhất có thể gặp là thứ tự commit, không phải đụng độ nội dung.
+- Người có thắc mắc phần interface hỏi ngay trong lúc mốc đang chạy — không chờ đến khi
+  commit mới hỏi.
+- Push bị từ chối do người khác push trước: `git pull` rồi `git push` lại. Tuyệt đối
+  không `--force`/amend/rebase — lịch sử thẳng là timeline.
+- Ai chậm/quên commit: phần việc đó vẫn phải lên repo trước khi kết thúc mốc chứa nó —
+  nhóm trưởng nhắc trực tiếp, không để mốc sau phải đợi.
 
 ## Trước ngày thi (checklist)
 
@@ -105,7 +102,7 @@ Xử lý sự cố push: push bị từ chối (ai đó push trước) → `git 
 | 6:40–6:50 | Deploy host (Run NPM Install + env) + smoke test end-to-end THẬT | Bạn |
 | 6:50–7:00 | Buffer + commit/push cuối — **sau mốc này KHÔNG viết logic mới** | — |
 
-\* Wizard khung (form + upload) giờ 1 đã commit trong khung — từ giờ 2 mọi sửa đổi `public/` là bàn giao cho TV3.
+\* Wizard khung (form + upload) giờ 1 đã commit trong khung — từ giờ 2 mọi sửa đổi `public/` thuộc TV3.
 
 > Mock Interview, Chat Coach, dark mode, responsive tinh chỉnh: **không xây** (cắt mặc định ở lộ trình 7 giờ).
 > Nếu một mốc trượt: cắt bớt phạm vi TRONG mốc đó (VD: JD fetch chỉ cần tầng direct + fallback dán tay nếu ít giờ),
