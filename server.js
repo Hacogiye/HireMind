@@ -28,6 +28,17 @@ app.use((req, res, next) => {
 //                 X-Session-Id khớp regex id (chặn path traversal TRƯỚC khi multer ghi file)
 // TODO(ngày thi): rate limit per-IP (token bucket tự viết) cho các endpoint tốn AI
 
+// Static: no-cache mọi thứ — LiteSpeed/host hay gắn cache max-age 7 ngày cho HTML,
+// ETag vẫn đảm bảo file sửa là mới ngay (không cần bump ?v=)
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res) { res.set('Cache-Control', 'no-cache'); },
+}));
+
+// /s/:id — trang phiên (SPA-style). Id KHÔNG validate ở đây (validate ở API).
+app.get('/s/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'session.html'));
+});
+
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: Date.now() }));
 
