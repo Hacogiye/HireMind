@@ -233,14 +233,14 @@
         if (r.text) clientText += r.text + '\n\n';
         images.push(...r.images);
       });
-      if (clientText.trim()) fd.append('clientPdfText', clientText);
-      if (images.length) fd.append('clientPdfImages', JSON.stringify(images));
-
-      // CV nhập tay (form / tự viết): gửi như text client-side — không cần file
+      // CV nhập tay nối CHUNG MỘT field clientPdfText — append 2 field trùng tên
+      // sẽ thành mảng ở server (multer) và vỡ khi gọi .trim()
       if (cvMode === 'manual') {
         const manualText = manualCvText();
-        if (manualText) fd.append('clientPdfText', (clientText ? clientText + '\n\n' : '') + manualText);
+        if (manualText) clientText += (clientText ? '\n\n' : '') + manualText;
       }
+      if (clientText.trim()) fd.append('clientPdfText', clientText);
+      if (images.length) fd.append('clientPdfImages', JSON.stringify(images));
 
       for (const it of files) fd.append('files', it.file, it.file.name);
 
