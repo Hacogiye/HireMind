@@ -1,4 +1,4 @@
-# Kế hoạch ngày thi — HireMind (9 tiếng: 8 xây + 1 bàn luận)
+# Kế hoạch ngày thi — HireMind (9 tiếng BTC: 7 xây + 2 bàn luận/rehearse)
 
 ## Quy định áp dụng (ngày thi)
 
@@ -11,10 +11,12 @@
 ## Thời lượng thực tế
 
 - Tổng **9 tiếng** theo BTC (có **3 tiếng chấm điểm**) → sau mốc ~6:00 phải **demo được end-to-end**.
-- Kế hoạch nhóm: **8 tiếng xây dựng** (deadline cứng — hết giờ 8 mọi logic đã commit) +
-  **1 tiếng cuối bàn luận với thành viên** (rehearse demo, chỉ fix nhỏ + commit ngay).
+- Kế hoạch nhóm: **7 tiếng xây dựng** (deadline cứng — hết giờ 7 mọi logic đã commit) +
+  **2 tiếng cuối bàn luận với thành viên** (rehearse demo, rà test biên, chỉ fix nhỏ + commit ngay).
+- Lý do rút còn 7 tiếng: dự phòng trượt tiến độ — nếu mốc Dashboard bị kéo dài thì vẫn còn đệm
+  trước mốc 6:00 chấm demo; các mốc đã nén sẵn, KHÔNG dồn việc sang muộn hơn mốc 6:45.
 
-## Sản phẩm đích 8 tiếng (phạm vi chức năng)
+## Sản phẩm đích 7 tiếng (phạm vi chức năng)
 
 **Lõi — không được cắt:**
 - Upload đa định dạng (PDF/DOCX/TXT/ảnh OCR) + nhập tay khi không có file
@@ -46,8 +48,9 @@
 
 - [x] Template khung trắng `hiremind-template/` — deps cài sẵn, git init, không logic
 - [x] Repo GitHub `https://github.com/Hacogiye/HireMind.git` — remote `origin` đã nối
-- [ ] **Test AI endpoint cả TEXT và VISION**: điền `.env` → `npm start` → 1 call text + gửi 1 ảnh
-      nhỏ hỏi "ảnh màu gì". Model không nhìn được ảnh → set `AI_VISION_MODEL` (đã có trong .env.example)
+- [x] **Test AI endpoint cả TEXT và VISION** — ✅ ĐÃ PASS (ngày 2026-10-03, trước ngày thi):
+      text OK; vision OK (ảnh đỏ → trả "Đỏ."); endpoint trả SSE có `reasoning_content` riêng
+      với `content` → parser phải đọc `delta.content`, không nhét reasoning vào kết quả
 - [ ] Chuẩn bị dữ liệu demo: 1-2 CV (PDF + ảnh chụp) + 2-3 link JD (TopCV + site thường) + 1 file
       KHÔNG phải CV + 1 JD dán tay sẵn (phòng mạng)
 - [ ] Xem lại bản tham chiếu v16 (`Downloads/HireMind`) — đặc biệt: 2 chế độ rewrite, chuẩn
@@ -56,20 +59,24 @@
       nạp kiểm chứng → so sánh điểm → cover letter → Gmail** — đây là arc pitching
 - [ ] Kiểm tra máy ngày thi: `git config user.name/user.email`, đăng nhập GitHub credential manager
 
-## Mốc 8 giờ xây dựng (commit sau MỖI đơn vị)
+## Mốc 7 giờ xây dựng (commit sau MỖI đơn vị)
 
 | Giờ | Việc |
 |---|---|
-| 0:00–0:30 | Verify khung + health; khung server (headers, static, middleware session id, body limit) |
-| 0:30–1:30 | Session + upload (multer, tên file UTF-8) + trả link; wizard client gửi file + meta |
-| 1:30–3:00 | Trích xuất (pdf.js text + ảnh scan; DOCX/TXT server) + AI client (stream SSE, extractJson, OCR chống hội thoại, tách AI_VISION_MODEL, phân loại lỗi) |
-| 3:00–4:15 | Pipeline nền: validate/gộp CV → JD → phân tích JSON schema đầy đủ (verdictLabel, alternativePaths) + stage progress + hàng đợi ghi + nhánh not-CV/thiếu vị trí |
-| 4:15–4:45 | Fetch JD 3 tầng + SSRF guard + fallback dán tay |
-| 4:45–6:00 | Dashboard: hero compact (3 stat chip bấm nhảy tab) + tabs Tổng quan/Đối chiếu/Lộ trình — **sau mốc này demo được end-to-end** |
-| 6:00–6:50 | **Viết lại CV 2 chế độ** (mode cards + cảnh báo tham khảo) + **xuất CV thiết kế .docx** |
-| 6:50–7:20 | Nạp CV kiểm chứng (phiên con + parentSessionId) + panel so sánh + Cover Letter + Gmail compose |
-| 7:20–7:45 | Deploy host (Run NPM Install + env) + smoke test end-to-end THẬT |
-| 7:45–8:00 | Buffer + commit/push cuối — **sau mốc này KHÔNG viết logic mới** |
+| 0:00–0:15 | Verify khung + health; khung server (headers, static, middleware session id, body limit) |
+| 0:15–1:10 | Session + upload (multer, tên file UTF-8) + trả link; wizard client gửi file + meta |
+| 1:10–2:35 | Trích xuất (pdf.js text + ảnh scan; DOCX/TXT server) + AI client (stream SSE, extractJson, OCR chống hội thoại, tách AI_VISION_MODEL, phân loại lỗi, đọc delta.content bỏ reasoning_content) |
+| 2:35–3:45 | Pipeline nền: validate/gộp CV → JD → phân tích JSON schema đầy đủ (verdictLabel, alternativePaths) + stage progress + hàng đợi ghi + nhánh not-CV/thiếu vị trí |
+| 3:45–4:15 | Fetch JD 3 tầng + SSRF guard + fallback dán tay |
+| 4:15–5:25 | Dashboard: hero compact (3 stat chip bấm nhảy tab) + tabs Tổng quan/Đối chiếu/Lộ trình — **sau mốc này demo được end-to-end (trước mốc 6:00 chấm demo)** |
+| 5:25–6:10 | **Viết lại CV 2 chế độ** (mode cards + cảnh báo tham khảo) + **xuất CV thiết kế .docx** |
+| 6:10–6:40 | Nạp CV kiểm chứng (phiên con + parentSessionId) + panel so sánh + Cover Letter + Gmail compose |
+| 6:40–6:50 | Deploy host (Run NPM Install + env) + smoke test end-to-end THẬT |
+| 6:50–7:00 | Buffer + commit/push cuối — **sau mốc này KHÔNG viết logic mới** |
+
+> Mock Interview, Chat Coach, dark mode, responsive tinh chỉnh: **không xây** (cắt mặc định ở lộ trình 7 giờ).
+> Nếu một mốc trượt: cắt bớt phạm vi TRONG mốc đó (VD: JD fetch chỉ cần tầng direct + fallback dán tay nếu ít giờ),
+> đừng đẩy việc sang mốc sau — mọi mốc sau đã nén tối đa.
 
 ### Ví dụ chuỗi commit theo mốc
 
@@ -83,7 +90,7 @@
 - **Vòng kiểm chứng + thư**: `feat: /reupload phien con ke thua meta` → `feat: panel so sanh truoc/sau` → `feat: cover letter chuan (letterhead, ≤3 so, CTA)` → `feat: mo gmail compose (to/cc/bcc)` → `fix: chong lap tieu de gmail`
 - **Deploy**: `chore: deploy host verified end-to-end`
 
-## Giờ thứ 9 — bàn luận cuối với thành viên
+## Giờ 8–9 — bàn luận cuối với thành viên
 
 - Rehearse demo arc: phân tích → **viết lại (2 chế độ) → xuất Word → nạp kiểm chứng → so sánh
   điểm → cover letter → Gmail** — nhấn mạnh thông điệp "AI trực tiếp sửa CV, không chỉ chấm"
@@ -94,7 +101,8 @@
 ## Bẫy đã biết (từ bản tham chiếu v16 — tránh lặp lại)
 
 **AI / model:**
-- Model alias có thể KHÔNG có vision (route vào model text) → OCR hỏng "không nhìn thấy ảnh" → tách `AI_VISION_MODEL`, test vision TRƯỚC ngày thi
+- Model trả SSE với `reasoning_content` (suy nghĩ nội bộ) TÁCH RIÊNG khỏi `content` (đáp án) → parser stream phải gom `delta.content`, tuyệt đối không ghép `reasoning_content` vào kết quả (khiến OCR/JSON phân tích dính "The image is..." kiểu suy luận)
+- Model alias có thể KHÔNG có vision (route vào model text) → OCR hỏng "không nhìn thấy ảnh" → tách `AI_VISION_MODEL`, test vision TRƯỚC ngày thi (✅ đã test PASS)
 - OCR thỉnh thoảng trả hội thoại ("I'll take a look...") → kiểm tra định dạng đầu ra + retry
 - AI có thói quen CHE email/SĐT thành placeholder khi viết lại → hậu xử lý phục hồi từ cleanedCv (regex email/phone)
 - Điểm chấm variance lớn giữa các lần (cùng CV chấm 67 rồi 20) → temperature 0.15 + disclaimer
