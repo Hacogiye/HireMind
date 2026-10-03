@@ -107,7 +107,7 @@ timeline trên GitHub thể hiện đúng người làm đúng phần.
 > Mock Interview, Chat Coach, dark mode, responsive tinh chỉnh: **không xây** (cắt mặc định ở lộ trình 7 giờ).
 > Nếu một mốc trượt: cắt bớt phạm vi TRONG mốc đó (VD: JD fetch chỉ cần tầng direct + fallback dán tay nếu ít giờ),
 > đừng đẩy việc sang mốc sau — mọi mốc sau đã nén tối đa.
-> Trượt kéo dài file của TV: bạn vẫn code tiếp phần sau nhờ hợp đồng interface — bàn giao tới đâu TV commit tới đó,
+> Trượt kéo dài file của TV: bạn vẫn code tiếp phần sau nhờ hợp đồng interface — phần nào sẵn sàng thì người đó commit phần đó,
 > thứ tự commit lệch một chút không sao, miễn không amend.
 
 ### Ví dụ chuỗi commit theo mốc
