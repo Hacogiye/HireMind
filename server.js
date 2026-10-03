@@ -75,6 +75,8 @@ function rateLimit(name, { capacity = 10, refillMs = 6000 } = {}) {
 
 // data/<id>/ — mỗi phiên một thư mục: session.json + uploads/
 const DATA_DIR = path.join(__dirname, 'data');
+// Pipeline nền + hàng đợi ghi — mọi ghi session.json đi qua withSession
+const { withSession, processSession, patchSession } = require('./lib/pipeline');
 
 // POST /api/session/new — tạo phiên, trả link /s/:id
 app.post('/api/session/new', (req, res) => {
@@ -113,52 +115,57 @@ const upload = multer({
   // các trang scan) dễ vượt và chết 500 im lặng nếu không nâng.
 });
 
-// POST /api/upload — nhận file + meta, chuyển phiên sang processing
+// POST /api/upload — nhận file + meta, chuyển phiên sang processing, kick off pipeline nền
 app.post('/api/upload', rateLimit('upload'), requireSessionId, upload.array('files', 12), (req, res) => {
   try {
     const sessionFile = path.join(DATA_DIR, req.sessionId, 'session.json');
     if (!fs.existsSync(sessionFile)) {
       return res.status(404).json({ error: 'Phiên không tồn tại — hãy tạo phiên mới.' });
     }
-    const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
 
     const meta = safeParse(req.body.meta);
     if (!meta.targetRole || !String(meta.targetRole).trim()) {
       return res.status(400).json({ error: 'Chưa nhập "Vị trí nhắm tới" — cần biết vị trí để phân tích CV.' });
     }
-
-    for (const f of (req.files || [])) {
-      session.files.push({
-        stored: f.filename,
-        // multer decode sai tên file UTF-8 (tiếng Việt) — sửa lại từ latin1
-        name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
-        size: f.size,
-        type: f.mimetype,
-      });
+    // Chặn sớm: không có file nào và không có text nào → pipeline chỉ có thể chết
+    if (!(req.files || []).length && !req.body.clientPdfText) {
+      return res.status(400).json({ error: 'Chưa có CV nào — hãy chọn file hoặc dán nội dung CV.' });
     }
 
-    session.meta = {
-      targetRole: String(meta.targetRole).trim(),
-      experienceLevel: meta.experienceLevel || '',
-      jdUrl: meta.jdUrl || '',
-      jdManual: meta.jdManual || '',
-    };
-    // Dữ liệu client gửi kèm (pdf.js chạy trên browser) — pipeline giờ 2 sẽ dùng
-    if (typeof req.body.clientPdfText === 'string') session.clientPdfText = req.body.clientPdfText;
-    if (typeof req.body.clientPdfImages === 'string') {
-      const imgs = safeParse(req.body.clientPdfImages);
-      if (Array.isArray(imgs)) session.clientPdfImages = imgs;
-    }
+    // Ghi QUA HÀNG ĐỘI của phiên — pipeline nền vừa được kick off cũng ghi session này
+    withSession(req.sessionId, (session) => {
+      for (const f of (req.files || [])) {
+        session.files.push({
+          stored: f.filename,
+          // multer decode sai tên file UTF-8 (tiếng Việt) — sửa lại từ latin1
+          name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
+          size: f.size,
+          type: f.mimetype,
+        });
+      }
+      session.meta = {
+        targetRole: String(meta.targetRole).trim(),
+        experienceLevel: meta.experienceLevel || '',
+        jdUrl: meta.jdUrl || '',
+        jdManual: meta.jdManual || '',
+      };
+      // Dữ liệu client gửi kèm (pdf.js chạy trên browser) — extractContent sẽ xóa sau khi dùng
+      if (typeof req.body.clientPdfText === 'string') session.clientPdfText = req.body.clientPdfText;
+      if (typeof req.body.clientPdfImages === 'string') {
+        const imgs = safeParse(req.body.clientPdfImages);
+        if (Array.isArray(imgs)) session.clientPdfImages = imgs;
+      }
+      session.status = 'processing';
+      session.stage = 'queued';
+      session.stageLabel = 'Trong hàng đợi';
+    }).then(() => {
+      // Pipeline nền fire-and-forget — user đóng tab vẫn chạy tiếp
+      setImmediate(() => processSession(req.sessionId).catch(e => console.error('[pipeline-kick]', e)));
+    }).catch(e => {
+      console.error('[upload-write]', e);
+    });
 
-    session.status = 'processing';
-    session.stage = 'queued';
-    session.stageLabel = 'Trong hàng đợi';
-    fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2));
-
-    // TODO(giờ 2:35): setImmediate(() => processSession(req.sessionId).catch(...))
-    // — kick off pipeline nền, user đóng tab vẫn chạy tiếp
-
-    res.json({ id: session.id, url: `/s/${session.id}` });
+    res.json({ id: req.sessionId, url: `/s/${req.sessionId}` });
   } catch (e) {
     console.error('[upload]', e);
     res.status(500).json({ error: 'Xử lý file gặp lỗi — thử lại.' });
@@ -170,7 +177,7 @@ function safeParse(s) {
   try { return JSON.parse(s); } catch { return {}; }
 }
 
-// GET /api/session/:id — poll trạng thái (dashboard chi tiết ghép ở giờ 4)
+// GET /api/session/:id — poll trạng thái + dữ liệu phân tích (dashboard sẽ dùng)
 app.get('/api/session/:id', (req, res) => {
   const id = req.params.id;
   if (!SESSION_RE.test(id)) return res.status(400).json({ error: 'Phiên không hợp lệ.' });
@@ -178,8 +185,9 @@ app.get('/api/session/:id', (req, res) => {
   if (!fs.existsSync(sessionFile)) return res.status(404).json({ error: 'Không tìm thấy phiên.' });
   try {
     const s = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-    // chỉ trả trường cần cho poll — không lộ dữ liệu CV trước khi dashboard dựng xong
-    res.json({ id: s.id, status: s.status, stage: s.stage, stageLabel: s.stageLabel, error: s.error, createdAt: s.createdAt });
+    // Không trả payload lớn (base64 ảnh scan) qua poll — dashboard không cần
+    const { clientPdfText, clientPdfImages, ...pub } = s;
+    res.json(pub);
   } catch (e) {
     console.error('[session:get]', e);
     res.status(500).json({ error: 'Đọc phiên gặp lỗi.' });
@@ -222,6 +230,29 @@ app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: 
 // Passenger/cPanel (Setup Node.js App) cấp PORT qua env; local mặc định 3000.
 app.listen(PORT, () => {
   console.log(`HireMind running at http://localhost:${PORT}`);
-  // TODO(ngày thi): startup sweep — session "processing" sót từ lần chạy cũ là chết,
-  // đánh dấu thành error để user không thấy spinner vĩnh viễn.
+  // Startup sweep: session "processing" sót từ lần chạy cũ là chết (pipeline đã
+  // chết cùng process cũ) — đánh dấu error để user không thấy spinner vĩnh viễn.
+  // Clear MỌI pending flag — pending sót trên phiên ready cũng làm UI kẹt vĩnh viễn.
+  try {
+    for (const id of fs.readdirSync(DATA_DIR)) {
+      if (!SESSION_RE.test(id)) continue;
+      const f = path.join(DATA_DIR, id, 'session.json');
+      if (!fs.existsSync(f)) continue;
+      try {
+        const s = JSON.parse(fs.readFileSync(f, 'utf8'));
+        if (s.status === 'processing') {
+          patchSession(id, {
+            status: 'error',
+            error: 'Máy chủ đã khởi động lại giữa lúc xử lý — hãy tạo phiên mới và nạp lại CV.',
+            chatPending: false,
+            interviewPending: false,
+            coverLetterPending: false,
+            rewritePending: false,
+          });
+        }
+      } catch { /* session hỏng — bỏ qua, không chết boot */ }
+    }
+  } catch (e) {
+    console.warn('[startup] sweep failed:', e.message);
+  }
 });
