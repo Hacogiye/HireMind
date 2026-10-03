@@ -91,6 +91,37 @@ app.post('/api/session/new', (req, res) => {
   }
 });
 
+// Multer: ghi vào data/<sessionId>/uploads (session id đã qua regex ở middleware)
+const multer = require('multer');
+const upload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, cb) {
+      const dir = path.join(DATA_DIR, req.sessionId, 'uploads');
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      } catch (e) { cb(e); }
+    },
+    filename(req, file, cb) {
+      // sanitize: chỉ giữ chữ/số/dấu gạch/chấm/cách — tránh ký tự nguy hiểm trên đĩa
+      const safe = file.originalname.replace(/[^\w.\- ]+/g, '_').slice(-80);
+      cb(null, `${Date.now()}_${safe}`);
+    },
+  }),
+  limits: { files: 12, fileSize: 15 * 1024 * 1024 },
+});
+
+// Bắt lỗi multer (quá 15MB / quá 12 file...) → thông báo thân thiện thay vì HTML lỗi mặc định
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    const msg = err.code === 'LIMIT_FILE_SIZE' ? 'File vượt quá 15MB.'
+      : err.code === 'LIMIT_FILE_COUNT' ? 'Tối đa 12 file mỗi lần gửi.'
+      : 'Gửi file không thành công: ' + err.code;
+    return res.status(413).json({ error: msg });
+  }
+  next(err);
+});
+
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: Date.now() }));
 
