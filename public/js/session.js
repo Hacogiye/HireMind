@@ -200,8 +200,8 @@
       ['rewrite', 'Viết lại CV', true],
       ['chat', 'Chat Coach', false],
       ['interview', 'Phỏng vấn giả lập', false],
-      ['cover', 'Cover Letter', false],
-      ['cv', 'CV gốc', false],
+      ['cover', 'Cover Letter', true],
+      ['cv', 'CV gốc', true],
     ].filter(t => t[2]);
 
     app.innerHTML = `
