@@ -74,6 +74,48 @@
 
   function hasManualCv() { return false; } // TODO(giờ 2): ô nhập CV tay khi không có file
 
+  // ---- Trích xuất PDF ngay trên trình duyệt (pdf.js local, không CDN) ----
+  // PDF text-rich: lấy text trực tiếp. Trang mỏng (<80 ký tự = scan) → render ảnh
+  // gửi AI vision OCR. Cap 8 trang ảnh (server cũng chỉ OCR 8) + JPEG 0.7 + rộng
+  // ~1600px để payload không phình (field multipart có giới hạn).
+  var MAX_PDF_PAGES_TEXT = 20;
+  var MAX_PDF_IMAGES = 8;
+
+  async function extractPdf(file) {
+    var buf = await file.arrayBuffer();
+    var pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    var text = '';
+    var images = [];
+    var pages = Math.min(pdf.numPages, MAX_PDF_PAGES_TEXT);
+    for (var i = 1; i <= pages; i++) {
+      var page = await pdf.getPage(i);
+      var tc = await page.getTextContent();
+      var pageText = tc.items.map(function (it) { return it.str; }).join(' ').trim();
+      if (pageText.length < 80 && images.length < MAX_PDF_IMAGES) {
+        var img = await renderPageToImage(page);
+        if (img) images.push(img);
+      }
+      text += pageText + '\n\n';
+    }
+    return { text: text.trim(), images: images };
+  }
+
+  async function renderPageToImage(page) {
+    try {
+      var base = page.getViewport({ scale: 1 });
+      var scale = Math.min(2, 1600 / base.width); // cap ~1600px rộng
+      var viewport = page.getViewport({ scale: scale });
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+      return { base64: canvas.toDataURL('image/jpeg', 0.7).split(',')[1], mime: 'image/jpeg' };
+    } catch (e) {
+      console.warn('render page failed', e);
+      return null;
+    }
+  }
+
   async function startProcessing(role) {
     $('stageLabel').textContent = 'Đang tạo phiên…';
     var res = await fetch('/api/session/new', { method: 'POST' });
@@ -88,8 +130,28 @@
       jdUrl: $('jdUrl').value.trim(),
       jdManual: $('jdManual').value.trim(),
     }));
-    for (var i = 0; i < files.length; i++) fd.append('files', files[i]);
-    // TODO(giờ 2): extractPdf bằng pdf.js trên browser → clientPdfText + clientPdfImages
+
+    // Trích xuất PDF client-side: text + ảnh trang scan. Tuần tự để không giữ
+    // nhiều PDF trong bộ nhớ. MỘT field clientPdfText duy nhất — nhiều field
+    // trùng tên sẽ thành array ở server và vỡ khi xử lý.
+    $('stageLabel').textContent = 'Đang đọc CV trên trình duyệt…';
+    var clientText = '';
+    var images = [];
+    for (var i = 0; i < files.length; i++) {
+      if (!/\.pdf$/i.test(files[i].name)) continue;
+      try {
+        var r = await extractPdf(files[i]);
+        if (r.text) clientText += (clientText ? '\n\n' : '') + r.text;
+        images = images.concat(r.images);
+      } catch (e) {
+        // PDF lỗi client đọc không được — vẫn gửi file, server sẽ thử parse
+        console.warn('extractPdf failed', files[i].name, e);
+      }
+    }
+    if (clientText.trim()) fd.append('clientPdfText', clientText.trim());
+    if (images.length) fd.append('clientPdfImages', JSON.stringify(images));
+
+    for (var j = 0; j < files.length; j++) fd.append('files', files[j]);
 
     var upRes = await fetch('/api/upload', {
       method: 'POST',
