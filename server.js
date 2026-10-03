@@ -122,6 +122,63 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
+// POST /api/upload — nhận file + meta, chuyển phiên sang processing
+app.post('/api/upload', rateLimit('upload'), requireSessionId, upload.array('files', 12), (req, res) => {
+  try {
+    const sessionFile = path.join(DATA_DIR, req.sessionId, 'session.json');
+    if (!fs.existsSync(sessionFile)) {
+      return res.status(404).json({ error: 'Phiên không tồn tại — hãy tạo phiên mới.' });
+    }
+    const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+
+    const meta = safeParse(req.body.meta);
+    if (!meta.targetRole || !String(meta.targetRole).trim()) {
+      return res.status(400).json({ error: 'Chưa nhập "Vị trí nhắm tới" — cần biết vị trí để phân tích CV.' });
+    }
+
+    for (const f of (req.files || [])) {
+      session.files.push({
+        stored: f.filename,
+        // multer decode sai tên file UTF-8 (tiếng Việt) — sửa lại từ latin1
+        name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
+        size: f.size,
+        type: f.mimetype,
+      });
+    }
+
+    session.meta = {
+      targetRole: String(meta.targetRole).trim(),
+      experienceLevel: meta.experienceLevel || '',
+      jdUrl: meta.jdUrl || '',
+      jdManual: meta.jdManual || '',
+    };
+    // Dữ liệu client gửi kèm (pdf.js chạy trên browser) — pipeline giờ 2 sẽ dùng
+    if (typeof req.body.clientPdfText === 'string') session.clientPdfText = req.body.clientPdfText;
+    if (typeof req.body.clientPdfImages === 'string') {
+      const imgs = safeParse(req.body.clientPdfImages);
+      if (Array.isArray(imgs)) session.clientPdfImages = imgs;
+    }
+
+    session.status = 'processing';
+    session.stage = 'queued';
+    session.stageLabel = 'Trong hàng đợi';
+    fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2));
+
+    // TODO(giờ 2:35): setImmediate(() => processSession(req.sessionId).catch(...))
+    // — kick off pipeline nền, user đóng tab vẫn chạy tiếp
+
+    res.json({ id: session.id, url: `/s/${session.id}` });
+  } catch (e) {
+    console.error('[upload]', e);
+    res.status(500).json({ error: 'Xử lý file gặp lỗi — thử lại.' });
+  }
+});
+
+function safeParse(s) {
+  if (!s || typeof s !== 'string') return {};
+  try { return JSON.parse(s); } catch { return {}; }
+}
+
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: Date.now() }));
 
