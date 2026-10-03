@@ -67,8 +67,11 @@ timeline trên GitHub thể hiện đúng người làm đúng phần.
 
 - Người có thắc mắc phần interface hỏi ngay trong lúc mốc đang chạy — không chờ đến khi
   commit mới hỏi.
+- Mỗi người chạy `git config pull.rebase true` sau khi clone — người push sau bị từ chối
+  thì `git pull` tự đặt commit của họ lên trên commit vừa có, timeline thẳng, không sinh
+  commit "Merge branch".
 - Push bị từ chối do người khác push trước: `git pull` rồi `git push` lại. Tuyệt đối
-  không `--force`/amend/rebase — lịch sử thẳng là timeline.
+  không `--force`/amend/rebase các commit ĐÃ PUSH — lịch sử thẳng là timeline.
 - Ai chậm/quên commit: phần việc đó vẫn phải lên repo trước khi kết thúc mốc chứa nó —
   nhóm trưởng nhắc trực tiếp, không để mốc sau phải đợi.
 
