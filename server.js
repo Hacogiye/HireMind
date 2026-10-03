@@ -10,7 +10,19 @@ app.disable('x-powered-by');
 
 app.use(express.json({ limit: '60mb' })); // limit lớn để chứa ảnh base64 của PDF scan
 
-// TODO(ngày thi): security headers (CSP, X-Frame-Options, nosniff...) đặt TRƯỚC express.static
+// Security headers ("helmet-lite") — đặt TRƯỚC static để mọi response đều mang
+app.use((req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    // CSP gọn: app chỉ gọi chính nó; ảnh data:/blob: cho preview CV + ảnh scan
+    'Content-Security-Policy':
+      "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
+      "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
+  });
+  next();
+});
 // TODO(ngày thi): express.static('public') + route GET /s/:id trả public/session.html
 // TODO(ngày thi): multer diskStorage vào data/<id>/uploads + middleware kiểm tra
 //                 X-Session-Id khớp regex id (chặn path traversal TRƯỚC khi multer ghi file)
