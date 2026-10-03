@@ -4,11 +4,55 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HireMind — Phiên phân tích</title>
+  <style>
+    body { font-family: system-ui, 'Segoe UI', sans-serif; margin: 0; background: #f4f6fa; color: #1c2333; }
+    .wrap { max-width: 720px; margin: 48px auto; padding: 0 16px; text-align: center; }
+    .spinner { width: 36px; height: 36px; margin: 24px auto; border: 4px solid #dbe3f0;
+      border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #stage { font-size: 18px; font-weight: 600; }
+    #err { color: #c0392b; margin-top: 12px; }
+  </style>
 </head>
 <body>
-  <h1>Phiên phân tích</h1>
-  <p>Khung trắng ngày thi — dashboard chưa được xây dựng.</p>
-  <!-- TODO(ngày thi): poll /api/session/:id đến khi ready; tabs:
-       Tổng quan / Đối chiếu JD / Lộ trình / Chat Coach / Phỏng vấn / Cover letter / CV gốc -->
+  <div class="wrap">
+    <h1>Phiên phân tích</h1>
+    <div class="spinner" id="spinner"></div>
+    <div id="stage">Đang tải phiên…</div>
+    <div id="err"></div>
+    <!-- TODO(giờ 4): dashboard tabs Tổng quan / Đối chiếu JD / Lộ trình -->
+  </div>
+  <script>
+    // Poll tối thiểu giờ 1 — dashboard thật ghép ở giờ 4
+    (function () {
+      var id = location.pathname.split('/').pop();
+      var stage = document.getElementById('stage');
+      var err = document.getElementById('err');
+      if (!/^[a-f0-9]{12}$/.test(id)) {
+        document.getElementById('spinner').style.display = 'none';
+        stage.textContent = 'Link phiên không hợp lệ.';
+        return;
+      }
+      var t = setInterval(async function () {
+        try {
+          var res = await fetch('/api/session/' + id);
+          if (!res.ok) return;
+          var s = await res.json();
+          if (s.status === 'processing') {
+            stage.textContent = s.stageLabel || 'Đang xử lý…';
+          } else if (s.status === 'ready') {
+            clearInterval(t);
+            stage.textContent = 'Phân tích hoàn tất.';
+            document.getElementById('spinner').style.display = 'none';
+          } else if (s.status === 'error') {
+            clearInterval(t);
+            document.getElementById('spinner').style.display = 'none';
+            stage.textContent = 'Gặp lỗi trong lúc xử lý.';
+            err.textContent = s.error || '';
+          }
+        } catch (e) { /* thử vòng sau */ }
+      }, 2500);
+    })();
+  </script>
 </body>
 </html>

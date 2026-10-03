@@ -4,11 +4,84 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HireMind</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, 'Segoe UI', sans-serif; margin: 0; background: #f4f6fa; color: #1c2333; }
+    .wrap { max-width: 640px; margin: 40px auto; padding: 0 16px; }
+    h1 { margin: 0 0 4px; }
+    .sub { color: #5a6478; margin: 0 0 24px; }
+    .card { background: #fff; border: 1px solid #e2e6ee; border-radius: 12px; padding: 20px; }
+    label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 14px; }
+    label .req { color: #c0392b; }
+    input[type=text], input[type=url], select, textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid #ccd3e0; border-radius: 8px;
+      font: inherit; background: #fbfcfe;
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    #dropzone {
+      border: 2px dashed #b9c3d6; border-radius: 10px; padding: 22px; text-align: center;
+      color: #5a6478; cursor: pointer; margin-top: 8px; background: #fbfcfe;
+    }
+    #dropzone.drag { border-color: #2563eb; background: #eef4ff; }
+    #fileList { font-size: 13px; color: #3d4658; margin-top: 8px; }
+    .hint { font-size: 12px; color: #8a93a6; margin-top: 4px; }
+    button {
+      margin-top: 20px; width: 100%; padding: 12px; font: inherit; font-weight: 700;
+      color: #fff; background: #2563eb; border: 0; border-radius: 10px; cursor: pointer;
+    }
+    button:disabled { background: #9db4e8; cursor: wait; }
+    #err { color: #c0392b; margin-top: 12px; font-size: 14px; display: none; }
+    #proc { display: none; text-align: center; padding: 40px 0; }
+    #proc .stage { font-size: 18px; font-weight: 600; margin-top: 12px; }
+    .spinner { width: 36px; height: 36px; margin: 0 auto; border: 4px solid #dbe3f0;
+      border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #proc a { color: #2563eb; }
+  </style>
 </head>
 <body>
-  <h1>HireMind</h1>
-  <p>Khung trắng ngày thi — giao diện chưa được xây dựng.</p>
-  <!-- TODO(ngày thi): landing + wizard (nạp CV file/form + vị trí nhắm tới + link/txt JD)
-       + processing UI (poll stage) + light/dark mode -->
+  <div class="wrap">
+    <h1>HireMind</h1>
+    <p class="sub">Nạp CV — nhận phân tích, lộ trình và bản CV viết lại.</p>
+
+    <div class="card" id="formCard">
+      <label>Vị trí nhắm tới <span class="req">*</span></label>
+      <input type="text" id="targetRole" placeholder="VD: Backend Developer (Node.js)">
+
+      <label>Kinh nghiệm</label>
+      <select id="experienceLevel">
+        <option value="">— Chọn —</option>
+        <option value="intern">Thực tập sinh / Fresher</option>
+        <option value="junior">Junior (0–2 năm)</option>
+        <option value="mid">Middle (2–5 năm)</option>
+        <option value="senior">Senior (5+ năm)</option>
+      </select>
+
+      <label>CV</label>
+      <div id="dropzone">Bấm để chọn file hoặc kéo thả vào đây<br>
+        <span class="hint">PDF, DOCX, TXT, ảnh (PNG/JPG) — tối đa 12 file, mỗi file 15MB</span>
+      </div>
+      <input type="file" id="fileInput" multiple hidden
+             accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp">
+      <div id="fileList"></div>
+
+      <label>Link JD (tùy chọn)</label>
+      <input type="url" id="jdUrl" placeholder="https://topcv.vn/...">
+
+      <label>Dán JD nếu không có link (tùy chọn)</label>
+      <textarea id="jdManual" placeholder="Dán nội dung JD vào đây khi trang tuyển dụng chặn truy cập..."></textarea>
+
+      <button id="submitBtn">Phân tích CV</button>
+      <div id="err"></div>
+    </div>
+
+    <div id="proc">
+      <div class="spinner"></div>
+      <div class="stage" id="stageLabel">Đang tạo phiên…</div>
+      <p class="hint" id="procLink"></p>
+    </div>
+  </div>
+
+  <script src="/js/wizard.js"></script>
 </body>
 </html>
