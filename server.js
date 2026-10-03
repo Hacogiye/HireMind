@@ -179,6 +179,22 @@ function safeParse(s) {
   try { return JSON.parse(s); } catch { return {}; }
 }
 
+// GET /api/session/:id — poll trạng thái (dashboard chi tiết ghép ở giờ 4)
+app.get('/api/session/:id', (req, res) => {
+  const id = req.params.id;
+  if (!SESSION_RE.test(id)) return res.status(400).json({ error: 'Phiên không hợp lệ.' });
+  const sessionFile = path.join(DATA_DIR, id, 'session.json');
+  if (!fs.existsSync(sessionFile)) return res.status(404).json({ error: 'Không tìm thấy phiên.' });
+  try {
+    const s = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+    // chỉ trả trường cần cho poll — không lộ dữ liệu CV trước khi dashboard dựng xong
+    res.json({ id: s.id, status: s.status, stage: s.stage, stageLabel: s.stageLabel, error: s.error, createdAt: s.createdAt });
+  } catch (e) {
+    console.error('[session:get]', e);
+    res.status(500).json({ error: 'Đọc phiên gặp lỗi.' });
+  }
+});
+
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: Date.now() }));
 
