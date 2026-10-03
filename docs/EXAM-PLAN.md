@@ -51,7 +51,7 @@
 | **Nhóm trưởng** | `server.js`, `package.json`, `dotenv.js`, `.gitignore`, `docs/` | Khung server, tất cả routes API, session, deploy. Định nghĩa hợp đồng interface cho các lib |
 | **Đạt** — Backend & Data Extraction | `lib/ai.js`, `lib/pipeline.js`, `lib/jd.js` | AI client (SSE, extractJson, OCR, lỗi thân thiện), pipeline 4 bước + hàng đợi ghi + trích xuất đa định dạng, fetch JD 3 tầng vượt Cloudflare + SSRF guard |
 | **Hải** — Frontend & UX/UI | `public/index.html`, `public/session.html`, `public/css/*`, `public/js/*` | Wizard (+pdf.js client), processing UI, dashboard 3 tabs, panel so sánh, Gmail compose |
-| **Thiện** — QA & Product Delivery | `lib/services.js`, `lib/docx.js` | Prompts phân tích/rewrite/cover letter (chất lượng đầu ra), xuất Markdown→DOCX + CV thiết kế (ô ảnh 3×4); ngoài repo: test biên đa định dạng, dữ liệu demo, kịch bản demo |
+| **Thiện** — QA & Product Delivery | `lib/services.js`, `lib/docx.js`, `docs/TESTING.md` | Prompts phân tích/rewrite/cover letter (chất lượng đầu ra), xuất Markdown→DOCX + CV thiết kế (ô ảnh 3×4); ngoài repo: dữ liệu demo, kịch bản demo, rehearse |
 
 Quy tắc sống còn của bản đồ:
 - **Hợp đồng interface trước, code sau**: chữ ký export của từng lib được chốt ngay khi bắt đầu mốc (ghi sẵn trong stub comment) — phần gọi (server.js) và phần được gọi (lib/*) bám đúng hợp đồng, không cần đợi nhau.
