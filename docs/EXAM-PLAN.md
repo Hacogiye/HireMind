@@ -44,6 +44,37 @@
 5. Commit file dở giữa chừng OK, miễn `npm start` không chết.
 6. Trước mỗi `git add`: liếc `git status` + `git diff` — không để `.env`/key/`data/` lọt.
 
+## Bản đồ phân quyền file (3 thành viên — mỗi file ĐÚNG MỘT chủ)
+
+| Chủ | File sở hữu (không ai khác đụng) | Phạm vi chức năng |
+|---|---|---|
+| **Bạn** (code chính) | `server.js`, `package.json`, `dotenv.js`, `.gitignore`, `docs/` | Khung server, tất cả routes API, session, deploy. Định nghĩa hợp đồng interface cho các lib |
+| **TV1 — AI & Pipeline** | `lib/ai.js`, `lib/pipeline.js`, `lib/services.js` | AI client (SSE, extractJson, OCR, lỗi thân thiện), pipeline 4 bước + hàng đợi ghi, prompts phân tích/rewrite/cover letter/interview |
+| **TV2 — JD & Xuất file** | `lib/jd.js`, `lib/docx.js` | Fetch JD 3 tầng + SSRF guard, xuất Markdown→DOCX + CV thiết kế (ô ảnh 3×4) |
+| **TV3 — UI/Dashboard** | `public/index.html`, `public/session.html`, `public/css/*`, `public/js/*` | Wizard (+pdf.js client), processing UI, dashboard 3 tabs, panel so sánh, Gmail compose |
+
+Quy tắc sống còn của bản đồ:
+- **Hợp đồng interface trước, code sau**: bạn chốt tên hàm/tham số export của từng lib ngay khi bắt đầu mốc (viết sẵn trong stub comment) — TV code trong file mình chỉ cần bám hợp đồng, server.js gọi đúng chữ ký.
+- File của ai chỉ người đó commit. Bạn KHÔNG BAO GIỜ commit file của TV (kể cả khi đã viết nội dung đó).
+- Conflict không thể xảy ra nếu tuân thủ bản đồ — vì không hai người cùng sửa một file.
+- Mỗi thành viên **phải chạy thử + hiểu được phần mình** trước khi commit (ghi chú bàn giao có mục "câu hỏi giám khảo có thể hỏi") — khi demo, ai trình bày phần đó.
+
+## Quy trình bàn giao (handoff loop — repo giữ sạch ghi chú nội bộ)
+
+Vòng lặp mỗi đơn vị code thuộc file của TV:
+1. Bạn (cùng trợ lý) code file đó, **test chạy OK trên máy bạn** (file nằm trong working tree, CHƯA commit).
+2. Tạo gói bàn giao tại `Downloads/handoff/<tv>-<moc>/`: file + `GHI-CHU.md` (commit message soạn sẵn, cách test nhanh, điểm cần hiểu để bảo vệ). Thư mục này NẰM NGOÀI repo.
+3. Gửi gói cho TV đúng người (Zalo/USB).
+4. TV: `git pull` → dán/đè đúng file được giao → `git add <file>` → `git commit -m "<message sẵn>"` → `git push`.
+5. Bạn đồng bộ lại: `git stash && git pull && git stash drop` (nội dung giống hệt → không thể conflict) → tiếp tục đơn vị tiếp theo.
+
+Chuẩn bị TRƯỚC ngày thi cho từng TV (việc trắng, không đụng logic):
+- Chấp nhận lời mời collaborator repo `Hacogiye/HireMind` (bạn mời trong Settings → Collaborators).
+- `git clone https://github.com/Hacogiye/HireMind.git` + `git config user.name "<tên>"` + `git config user.email "<email GitHub>"`.
+- Nhận trước cẩm nang `SETUP-THANH-VIEN.md`, đọc qua phạm vi phần mình trong EXAM-PLAN.
+
+Xử lý sự cố push: push bị từ chối (ai đó push trước) → `git pull` rồi `git push` lại. Tuyệt đối không `--force`/amend/rebase. Vấn đề duy nhất có thể gặp là thứ tự commit, không phải đụng độ nội dung.
+
 ## Trước ngày thi (checklist)
 
 - [x] Template khung trắng `hiremind-template/` — deps cài sẵn, git init, không logic
@@ -59,24 +90,28 @@
       nạp kiểm chứng → so sánh điểm → cover letter → Gmail** — đây là arc pitching
 - [ ] Kiểm tra máy ngày thi: `git config user.name/user.email`, đăng nhập GitHub credential manager
 
-## Mốc 7 giờ xây dựng (commit sau MỖI đơn vị)
+## Mốc 7 giờ xây dựng (commit sau MỖI đơn vị — "Chủ" = ai commit file đó)
 
-| Giờ | Việc |
-|---|---|
-| 0:00–0:15 | Verify khung + health; khung server (headers, static, middleware session id, body limit) |
-| 0:15–1:10 | Session + upload (multer, tên file UTF-8) + trả link; wizard client gửi file + meta |
-| 1:10–2:35 | Trích xuất (pdf.js text + ảnh scan; DOCX/TXT server) + AI client (stream SSE, extractJson, OCR chống hội thoại, tách AI_VISION_MODEL, phân loại lỗi, đọc delta.content bỏ reasoning_content) |
-| 2:35–3:45 | Pipeline nền: validate/gộp CV → JD → phân tích JSON schema đầy đủ (verdictLabel, alternativePaths) + stage progress + hàng đợi ghi + nhánh not-CV/thiếu vị trí |
-| 3:45–4:15 | Fetch JD 3 tầng + SSRF guard + fallback dán tay |
-| 4:15–5:25 | Dashboard: hero compact (3 stat chip bấm nhảy tab) + tabs Tổng quan/Đối chiếu/Lộ trình — **sau mốc này demo được end-to-end (trước mốc 6:00 chấm demo)** |
-| 5:25–6:10 | **Viết lại CV 2 chế độ** (mode cards + cảnh báo tham khảo) + **xuất CV thiết kế .docx** |
-| 6:10–6:40 | Nạp CV kiểm chứng (phiên con + parentSessionId) + panel so sánh + Cover Letter + Gmail compose |
-| 6:40–6:50 | Deploy host (Run NPM Install + env) + smoke test end-to-end THẬT |
-| 6:50–7:00 | Buffer + commit/push cuối — **sau mốc này KHÔNG viết logic mới** |
+| Giờ | Việc | Chủ |
+|---|---|---|
+| 0:00–0:15 | Verify khung + health; khung server (headers, static, middleware session id, body limit) | Bạn |
+| 0:15–1:10 | Session + upload (multer, tên file UTF-8) + trả link; wizard client gửi file + meta | Bạn + TV3* |
+| 1:10–2:35 | Trích xuất (pdf.js text + ảnh scan; DOCX/TXT server) + AI client (stream SSE, extractJson, OCR chống hội thoại, tách AI_VISION_MODEL, phân loại lỗi, đọc delta.content bỏ reasoning_content) | **TV1** + TV3 (wizard pdf.js) |
+| 2:35–3:45 | Pipeline nền: validate/gộp CV → JD → phân tích JSON schema đầy đủ (verdictLabel, alternativePaths) + stage progress + hàng đợi ghi + nhánh not-CV/thiếu vị trí | **TV1** |
+| 3:45–4:15 | Fetch JD 3 tầng + SSRF guard + fallback dán tay | **TV2** |
+| 4:15–5:25 | Dashboard: hero compact (3 stat chip bấm nhảy tab) + tabs Tổng quan/Đối chiếu/Lộ trình — **sau mốc này demo được end-to-end (trước mốc 6:00 chấm demo)** | **TV3** |
+| 5:25–6:10 | **Viết lại CV 2 chế độ** (services.js prompt + mode cards UI + cảnh báo tham khảo) + **xuất CV thiết kế .docx** | TV1 (services) + **TV3** (UI) + **TV2** (docx) |
+| 6:10–6:40 | Nạp CV kiểm chứng (phiên con + parentSessionId) + panel so sánh + Cover Letter + Gmail compose | Bạn (reupload route) + TV1 (prompt) + **TV3** (UI) |
+| 6:40–6:50 | Deploy host (Run NPM Install + env) + smoke test end-to-end THẬT | Bạn |
+| 6:50–7:00 | Buffer + commit/push cuối — **sau mốc này KHÔNG viết logic mới** | — |
+
+\* Wizard khung (form + upload) giờ 1 đã commit trong khung — từ giờ 2 mọi sửa đổi `public/` là bàn giao cho TV3.
 
 > Mock Interview, Chat Coach, dark mode, responsive tinh chỉnh: **không xây** (cắt mặc định ở lộ trình 7 giờ).
 > Nếu một mốc trượt: cắt bớt phạm vi TRONG mốc đó (VD: JD fetch chỉ cần tầng direct + fallback dán tay nếu ít giờ),
 > đừng đẩy việc sang mốc sau — mọi mốc sau đã nén tối đa.
+> Trượt kéo dài file của TV: bạn vẫn code tiếp phần sau nhờ hợp đồng interface — bàn giao tới đâu TV commit tới đó,
+> thứ tự commit lệch một chút không sao, miễn không amend.
 
 ### Ví dụ chuỗi commit theo mốc
 
