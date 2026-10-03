@@ -54,6 +54,24 @@ function requireSessionId(req, res, next) {
   next();
 }
 
+// Rate limit per-IP, token bucket tự viết — bảo vệ các endpoint tốn AI
+const buckets = new Map(); // key "<name>:<ip>" -> { tokens, last }
+function rateLimit(name, { capacity = 10, refillMs = 6000 } = {}) {
+  return (req, res, next) => {
+    const key = `${name}:${req.ip}`;
+    const now = Date.now();
+    const b = buckets.get(key) || { tokens: capacity, last: now };
+    b.tokens = Math.min(capacity, b.tokens + (now - b.last) / refillMs);
+    b.last = now;
+    if (b.tokens < 1) {
+      return res.status(429).json({ error: 'Bạn thao tác quá nhanh — chờ một chút rồi thử lại.' });
+    }
+    b.tokens -= 1;
+    buckets.set(key, b);
+    next();
+  };
+}
+
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: Date.now() }));
 
