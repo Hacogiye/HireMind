@@ -111,17 +111,6 @@ const upload = multer({
   limits: { files: 12, fileSize: 15 * 1024 * 1024 },
 });
 
-// Bắt lỗi multer (quá 15MB / quá 12 file...) → thông báo thân thiện thay vì HTML lỗi mặc định
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    const msg = err.code === 'LIMIT_FILE_SIZE' ? 'File vượt quá 15MB.'
-      : err.code === 'LIMIT_FILE_COUNT' ? 'Tối đa 12 file mỗi lần gửi.'
-      : 'Gửi file không thành công: ' + err.code;
-    return res.status(413).json({ error: msg });
-  }
-  next(err);
-});
-
 // POST /api/upload — nhận file + meta, chuyển phiên sang processing
 app.post('/api/upload', rateLimit('upload'), requireSessionId, upload.array('files', 12), (req, res) => {
   try {
@@ -193,6 +182,18 @@ app.get('/api/session/:id', (req, res) => {
     console.error('[session:get]', e);
     res.status(500).json({ error: 'Đọc phiên gặp lỗi.' });
   }
+});
+
+// Bắt lỗi multer (quá 15MB / quá 12 file...) → thông báo thân thiện.
+// ĐẶT SAU các route — error handler chỉ bắt lỗi của route đăng ký TRƯỚC nó.
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    const msg = err.code === 'LIMIT_FILE_SIZE' ? 'File vượt quá 15MB.'
+      : err.code === 'LIMIT_FILE_COUNT' ? 'Tối đa 12 file mỗi lần gửi.'
+      : 'Gửi file không thành công: ' + err.code;
+    return res.status(413).json({ error: msg });
+  }
+  next(err);
 });
 
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
