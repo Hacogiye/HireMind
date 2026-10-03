@@ -281,7 +281,9 @@ app.post('/api/export/cv-docx', (req, res) => {
 // ---------- Vòng kiểm chứng: nạp CV mới vào PHIÊN CON so với phiên gốc ----------
 // Phiên con kế thừa meta (vị trí/JD) + mang parentSessionId — dashboard phiên con
 // dùng nó để tải kết quả phiên gốc dựng panel so sánh trước/sau.
-app.post('/api/session/:id/reupload', requireSessionId, upload.array('files', 12), (req, res) => {
+// Chain 3 khâu: validate parent + cấp id con (đặt req.sessionId = id CON để multer
+// ghi vào đúng thư mục phiên con) → multer → ghi session.json + kick pipeline.
+app.post('/api/session/:id/reupload', (req, res, next) => {
   try {
     const parentId = req.params.id;
     if (!SESSION_RE.test(parentId)) return res.status(400).json({ error: 'Session id không hợp lệ' });
@@ -289,36 +291,49 @@ app.post('/api/session/:id/reupload', requireSessionId, upload.array('files', 12
     if (!fs.existsSync(parentFile)) return res.status(404).json({ error: 'Không tìm thấy phiên gốc' });
     const parent = JSON.parse(fs.readFileSync(parentFile, 'utf8'));
     if (parent.status !== 'ready') return res.status(400).json({ error: 'Phiên gốc chưa sẵn sàng' });
+
+    const id = newSessionId();
+    fs.mkdirSync(path.join(DATA_DIR, id), { recursive: true });
+    req.sessionId = id; // multer destination đọc từ đây
+    req._parent = parent;
+    next();
+  } catch (e) {
+    console.error('[reupload]', e);
+    res.status(500).json({ error: 'Không tạo được phiên kiểm chứng — thử lại.' });
+  }
+}, upload.array('files', 12), (req, res) => {
+  try {
+    const id = req.sessionId;
+    const parent = req._parent;
     if (!(req.files || []).length && !req.body.clientPdfText) {
       return res.status(400).json({ error: 'Chưa chọn file CV nào' });
     }
 
-    const id = newSessionId();
-    fs.mkdirSync(path.join(DATA_DIR, id), { recursive: true });
-    // Ghi khởi tạo qua hàng đợi luôn — pipeline vừa kick off cũng ghi phiên này
-    withSession(id, (session) => {
-      session.id = id;
-      session.status = 'uploading';
-      session.createdAt = new Date().toISOString();
-      session.files = (req.files || []).map(f => ({
+    // Ghi khởi tạo TRỰC TIẾP: file chưa tồn tại nên withSession (đọc-trước) không dùng
+    // được; an toàn vì pipeline chỉ kick SAU khi ghi xong — chưa có writer nào khác.
+    const session = {
+      id,
+      status: 'uploading',
+      createdAt: new Date().toISOString(),
+      files: (req.files || []).map(f => ({
         stored: f.filename,
         name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
         size: f.size,
         type: f.mimetype,
-      }));
-      session.meta = { ...(parent.meta || {}), ...(safeParse(req.body.meta) || {}) };
-      session.parentSessionId = parentId;
-      if (typeof req.body.clientPdfText === 'string') session.clientPdfText = req.body.clientPdfText;
-      if (typeof req.body.clientPdfImages === 'string') {
-        const imgs = safeParse(req.body.clientPdfImages);
-        if (Array.isArray(imgs)) session.clientPdfImages = imgs;
-      }
-      session.status = 'processing';
-      session.stage = 'queued';
-      session.stageLabel = 'Đang chờ xử lý...';
-    }).then(() => {
-      setImmediate(() => processSession(id).catch(e => console.error('[reupload-pipeline]', e)));
-    }).catch(e => console.error('[reupload-write]', e));
+      })),
+      meta: { ...(parent.meta || {}), ...(safeParse(req.body.meta) || {}) },
+      parentSessionId: parent.id,
+    };
+    if (typeof req.body.clientPdfText === 'string') session.clientPdfText = req.body.clientPdfText;
+    if (typeof req.body.clientPdfImages === 'string') {
+      const imgs = safeParse(req.body.clientPdfImages);
+      if (Array.isArray(imgs)) session.clientPdfImages = imgs;
+    }
+    session.status = 'processing';
+    session.stage = 'queued';
+    session.stageLabel = 'Đang chờ xử lý...';
+    fs.writeFileSync(path.join(DATA_DIR, id, 'session.json'), JSON.stringify(session, null, 2));
+    setImmediate(() => processSession(id).catch(e => console.error('[reupload-pipeline]', e)));
 
     res.json({ id, url: `/s/${id}` });
   } catch (e) {
