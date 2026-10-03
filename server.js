@@ -3,6 +3,7 @@
 require('./dotenv').loadEnv(__dirname);
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 
 const app = express();
@@ -71,6 +72,24 @@ function rateLimit(name, { capacity = 10, refillMs = 6000 } = {}) {
     next();
   };
 }
+
+// data/<id>/ — mỗi phiên một thư mục: session.json + uploads/
+const DATA_DIR = path.join(__dirname, 'data');
+
+// POST /api/session/new — tạo phiên, trả link /s/:id
+app.post('/api/session/new', (req, res) => {
+  try {
+    const id = newSessionId();
+    fs.mkdirSync(path.join(DATA_DIR, id), { recursive: true });
+    fs.writeFileSync(path.join(DATA_DIR, id, 'session.json'), JSON.stringify({
+      id, status: 'uploading', createdAt: new Date().toISOString(), files: [], meta: {},
+    }, null, 2));
+    res.json({ id, url: `/s/${id}` });
+  } catch (e) {
+    console.error('[session/new]', e);
+    res.status(500).json({ error: 'Không tạo được phiên — thử lại.' });
+  }
+});
 
 // Health check — dùng verify deploy nhanh (phần khung, không phải logic nghiệp vụ)
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'hiremind', ts: Date.now() }));
