@@ -837,15 +837,13 @@
     let pendingImgs = []; // { base64, mime, dataUrl }
     let pendingPoll = null;
 
-    // Restore lịch sử từ server (session.chatHistory) — không mất khi đổi tab/reload
+    // Restore lịch sử từ server (session.chatHistory) — render theo ROLE từng entry,
+    // KHÔNG ghép cặp theo chỉ số (history có thể lệch nhịp khi 1 lượt AI lỗi giữa chừng)
     chatHistory = (SESSION.chatHistory || []).slice();
     if (chatHistory.length) {
-      for (let i = 0; i < chatHistory.length; i += 2) {
-        const u = chatHistory[i], a = chatHistory[i + 1];
-        if (u && a) {
-          log.appendChild(mdBubble('user', u?.content || '', null));
-          log.appendChild(mdBubble('ai', a.content || ''));
-        }
+      for (const m of chatHistory) {
+        if (!m || !m.content) continue;
+        log.appendChild(mdBubble(m.role === 'user' ? 'user' : 'ai', m.content));
       }
     } else {
       log.appendChild(mdBubble('ai', `Chào bạn! 👋 Mình đã đọc kỹ CV${SESSION.jd ? ` và tin tuyển dụng **${SESSION.jd.title || ''}**` : ''} của bạn. Hỏi mình bất cứ điều gì — ví dụ: *"mình nên bỏ mục nào?"*, *"viết lại mục tiêu nghề nghiệp giúp mình"*, *"mình cần học gì để đạt JD này?"* — hoặc đính kèm ảnh để mình xem.`));
