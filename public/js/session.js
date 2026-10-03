@@ -197,7 +197,7 @@
       ['overview', 'Tổng quan', true],
       ['match', 'Đối chiếu JD', !!jd],
       ['roadmap', 'Lộ trình', !!(r.roadmap && r.roadmap.length)],
-      ['rewrite', 'Viết lại CV', false], // TODO(mốc 5:25): bật khi có POST /rewrite
+      ['rewrite', 'Viết lại CV', true],
       ['chat', 'Chat Coach', false],
       ['interview', 'Phỏng vấn giả lập', false],
       ['cover', 'Cover Letter', false],
