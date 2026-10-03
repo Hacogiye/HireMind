@@ -48,10 +48,10 @@
 
 | Chủ | File sở hữu (không ai khác đụng) | Phạm vi chức năng |
 |---|---|---|
-| **Bạn** (code chính) | `server.js`, `package.json`, `dotenv.js`, `.gitignore`, `docs/` | Khung server, tất cả routes API, session, deploy. Định nghĩa hợp đồng interface cho các lib |
-| **TV1 — AI & Pipeline** | `lib/ai.js`, `lib/pipeline.js`, `lib/services.js` | AI client (SSE, extractJson, OCR, lỗi thân thiện), pipeline 4 bước + hàng đợi ghi, prompts phân tích/rewrite/cover letter/interview |
-| **TV2 — JD & Xuất file** | `lib/jd.js`, `lib/docx.js` | Fetch JD 3 tầng + SSRF guard, xuất Markdown→DOCX + CV thiết kế (ô ảnh 3×4) |
-| **TV3 — UI/Dashboard** | `public/index.html`, `public/session.html`, `public/css/*`, `public/js/*` | Wizard (+pdf.js client), processing UI, dashboard 3 tabs, panel so sánh, Gmail compose |
+| **Nhóm trưởng** | `server.js`, `package.json`, `dotenv.js`, `.gitignore`, `docs/` | Khung server, tất cả routes API, session, deploy. Định nghĩa hợp đồng interface cho các lib |
+| **Đạt** — Backend & Data Extraction | `lib/ai.js`, `lib/pipeline.js`, `lib/jd.js` | AI client (SSE, extractJson, OCR, lỗi thân thiện), pipeline 4 bước + hàng đợi ghi + trích xuất đa định dạng, fetch JD 3 tầng vượt Cloudflare + SSRF guard |
+| **Hải** — Frontend & UX/UI | `public/index.html`, `public/session.html`, `public/css/*`, `public/js/*` | Wizard (+pdf.js client), processing UI, dashboard 3 tabs, panel so sánh, Gmail compose |
+| **Thiện** — QA & Product Delivery | `lib/services.js`, `lib/docx.js` | Prompts phân tích/rewrite/cover letter (chất lượng đầu ra), xuất Markdown→DOCX + CV thiết kế (ô ảnh 3×4); ngoài repo: test biên đa định dạng, dữ liệu demo, kịch bản demo |
 
 Quy tắc sống còn của bản đồ:
 - **Hợp đồng interface trước, code sau**: chữ ký export của từng lib được chốt ngay khi bắt đầu mốc (ghi sẵn trong stub comment) — phần gọi (server.js) và phần được gọi (lib/*) bám đúng hợp đồng, không cần đợi nhau.
@@ -91,18 +91,18 @@ timeline trên GitHub thể hiện đúng người làm đúng phần.
 
 | Giờ | Việc | Chủ |
 |---|---|---|
-| 0:00–0:15 | Verify khung + health; khung server (headers, static, middleware session id, body limit) | Bạn |
-| 0:15–1:10 | Session + upload (multer, tên file UTF-8) + trả link; wizard client gửi file + meta | Bạn + TV3* |
-| 1:10–2:35 | Trích xuất (pdf.js text + ảnh scan; DOCX/TXT server) + AI client (stream SSE, extractJson, OCR chống hội thoại, tách AI_VISION_MODEL, phân loại lỗi, đọc delta.content bỏ reasoning_content) | **TV1** + TV3 (wizard pdf.js) |
-| 2:35–3:45 | Pipeline nền: validate/gộp CV → JD → phân tích JSON schema đầy đủ (verdictLabel, alternativePaths) + stage progress + hàng đợi ghi + nhánh not-CV/thiếu vị trí | **TV1** |
-| 3:45–4:15 | Fetch JD 3 tầng + SSRF guard + fallback dán tay | **TV2** |
-| 4:15–5:25 | Dashboard: hero compact (3 stat chip bấm nhảy tab) + tabs Tổng quan/Đối chiếu/Lộ trình — **sau mốc này demo được end-to-end (trước mốc 6:00 chấm demo)** | **TV3** |
-| 5:25–6:10 | **Viết lại CV 2 chế độ** (services.js prompt + mode cards UI + cảnh báo tham khảo) + **xuất CV thiết kế .docx** | TV1 (services) + **TV3** (UI) + **TV2** (docx) |
-| 6:10–6:40 | Nạp CV kiểm chứng (phiên con + parentSessionId) + panel so sánh + Cover Letter + Gmail compose | Bạn (reupload route) + TV1 (prompt) + **TV3** (UI) |
-| 6:40–6:50 | Deploy host (Run NPM Install + env) + smoke test end-to-end THẬT | Bạn |
+| 0:00–0:15 | Verify khung + health; khung server (headers, static, middleware session id, body limit) | Nhóm trưởng |
+| 0:15–1:10 | Session + upload (multer, tên file UTF-8) + trả link; wizard client gửi file + meta | Nhóm trưởng + Hải* |
+| 1:10–2:35 | Trích xuất (pdf.js text + ảnh scan; DOCX/TXT server) + AI client (stream SSE, extractJson, OCR chống hội thoại, tách AI_VISION_MODEL, phân loại lỗi, đọc delta.content bỏ reasoning_content) | **Đạt** + Hải (wizard pdf.js) |
+| 2:35–3:45 | Pipeline nền: validate/gộp CV → JD → phân tích JSON schema đầy đủ (verdictLabel, alternativePaths) + stage progress + hàng đợi ghi + nhánh not-CV/thiếu vị trí | **Đạt** |
+| 3:45–4:15 | Fetch JD 3 tầng + SSRF guard + fallback dán tay | **Đạt** |
+| 4:15–5:25 | Dashboard: hero compact (3 stat chip bấm nhảy tab) + tabs Tổng quan/Đối chiếu/Lộ trình — **sau mốc này demo được end-to-end (trước mốc 6:00 chấm demo)** | **Hải** |
+| 5:25–6:10 | **Viết lại CV 2 chế độ** (services.js prompt + mode cards UI + cảnh báo tham khảo) + **xuất CV thiết kế .docx** | **Thiện** (services + docx) + **Hải** (UI) |
+| 6:10–6:40 | Nạp CV kiểm chứng (phiên con + parentSessionId) + panel so sánh + Cover Letter + Gmail compose | Nhóm trưởng (reupload route) + **Thiện** (prompt) + **Hải** (UI) |
+| 6:40–6:50 | Deploy host (Run NPM Install + env) + smoke test end-to-end THẬT | Nhóm trưởng |
 | 6:50–7:00 | Buffer + commit/push cuối — **sau mốc này KHÔNG viết logic mới** | — |
 
-\* Wizard khung (form + upload) giờ 1 đã commit trong khung — từ giờ 2 mọi sửa đổi `public/` thuộc TV3.
+\* Wizard khung (form + upload) giờ 1 đã commit trong khung — từ giờ 2 mọi sửa đổi `public/` thuộc Hải.
 
 > Mock Interview, Chat Coach, dark mode, responsive tinh chỉnh: **không xây** (cắt mặc định ở lộ trình 7 giờ).
 > Nếu một mốc trượt: cắt bớt phạm vi TRONG mốc đó (VD: JD fetch chỉ cần tầng direct + fallback dán tay nếu ít giờ),
